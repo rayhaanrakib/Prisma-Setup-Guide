@@ -3,18 +3,6 @@
 
 # 🛠️ Backend (Prisma-Express) Server Setup Guide
 
-<!-- Language & Package Manager Switcher -->
-<div style="margin: 20px 0;">
-  <a href="README.md">
-    <img src="https://img.shields.io/badge/📦_Bun-Primary-FBF0DF?style=for-the-badge&labelColor=14151a&color=f472b6" alt="Bun Version">
-  </a>
-  <a href="README_NPM.md">
-    <img src="https://img.shields.io/badge/📦_npm-Alternative-CB3837?style=for-the-badge&labelColor=14151a&color=60a5fa" alt="npm Version">
-  </a>
-  <a href="README_BN.md">
-    <img src="https://img.shields.io/badge/🇧🇩_বাংলা-Bengali-006A4E?style=for-the-badge&labelColor=14151a&color=a78bfa" alt="Bengali Version">
-  </a>
-</div>
 
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-Package_Manager-FBF0DF?style=for-the-badge&logo=bun&logoColor=black)
@@ -25,6 +13,13 @@
 A step-by-step reference guide for setting up a **TypeScript backend** with **Express**, **Prisma ORM**, and **Bun** as the package manager.
 
 📖 [Official Prisma Docs](https://www.prisma.io/docs/prisma-postgres/quickstart/prisma-orm#1-create-a-new-project)
+
+<!-- Language / Variant Switcher Buttons -->
+<p>
+  <a href="./README.md"><img src="https://img.shields.io/badge/📖_English_(Bun)-4FC08D?style=for-the-badge&logoColor=white" alt="English (Bun)"></a>
+  <a href="./README_BN.md"><img src="https://img.shields.io/badge/📖_Bengali_(Bun)-E91E63?style=for-the-badge&logoColor=white" alt="Bengali (Bun)"></a>
+  <a href="./README_NPM.md"><img src="https://img.shields.io/badge/📖_English_(npm)-CB3837?style=for-the-badge&logo=npm&logoColor=white" alt="English (npm)"></a>
+</p>
 
 </div>
 
