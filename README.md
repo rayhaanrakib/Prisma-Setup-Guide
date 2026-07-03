@@ -29,6 +29,7 @@ A step-by-step reference guide for setting up a **TypeScript backend** with **Ex
   - [Step 5 — Setup Environment Variable](#step-5--setup-environment-variable)
   - [Step 6 — Database Migration](#step-6--database-migration)
   - [Step 7 — Generate Prisma Client](#step-7--generate-prisma-client)
+  - [Step 8 — Instantiate Prisma Client](#step-8--instantiate-prisma-client)
 
 ---
 
@@ -124,14 +125,14 @@ bun add -d @types/express @types/cors @types/jsonwebtoken @types/cookie-parser @
 
 **Runtime Packages:**
 
-| Package         | Description                                                                                                                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `express`       | Minimal and flexible Node.js web framework for building APIs and handling HTTP requests/responses                             |
-| `cors`          | Middleware that enables **Cross-Origin Resource Sharing**, allowing your API to accept requests from different domains/ports  |
-| `jsonwebtoken`  | Used to **sign and verify JWTs** (JSON Web Tokens) for authentication and authorization                                       |
-| `cookie-parser` | Middleware that **parses cookies** attached to incoming requests, making them accessible via `req.cookies`                    |
-| `http-status`   | Provides **readable HTTP status code constants** (e.g., `httpStatus.OK` instead of `200`)                                    |
-| `bcrypt`        | Used to **hash and compare passwords** securely before storing them in the database                                           |
+| Package         | Description                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `express`       | Minimal and flexible Node.js web framework for building APIs and handling HTTP requests/responses                            |
+| `cors`          | Middleware that enables **Cross-Origin Resource Sharing**, allowing your API to accept requests from different domains/ports |
+| `jsonwebtoken`  | Used to **sign and verify JWTs** (JSON Web Tokens) for authentication and authorization                                      |
+| `cookie-parser` | Middleware that **parses cookies** attached to incoming requests, making them accessible via `req.cookies`                   |
+| `http-status`   | Provides **readable HTTP status code constants** (e.g., `httpStatus.OK` instead of `200`)                                   |
+| `bcrypt`        | Used to **hash and compare passwords** securely before storing them in the database                                          |
 
 **Dev Packages (Type Definitions):**
 
@@ -164,10 +165,10 @@ bun add -d @types/pg
 
 #### 📖 Package Descriptions
 
-| Package    | Type    | Description                                                                                          |
-| ---------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `pg`       | Runtime | The **PostgreSQL client for Node.js** — allows direct communication with your PostgreSQL database    |
-| `@types/pg`| Dev     | TypeScript type definitions for `pg`                                                                 |
+| Package     | Type    | Description                                                                                       |
+| ----------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `pg`        | Runtime | The **PostgreSQL client for Node.js** — allows direct communication with your PostgreSQL database |
+| `@types/pg` | Dev     | TypeScript type definitions for `pg`                                                              |
 
 > [!NOTE]
 > `pg` is the underlying driver that `@prisma/adapter-pg` depends on to communicate with PostgreSQL. Installing it explicitly gives you direct access to the PostgreSQL client when needed outside of Prisma.
@@ -211,7 +212,7 @@ Replace the contents of your `tsconfig.json` with the following for **ESM compat
 Run the Prisma init command with a **custom client output path**:
 
 ```bash
-bunx --bun prisma init --output ./generated/prisma
+bunx --bun prisma init --output ../generated/prisma
 ```
 
 ✅ This command automatically generates:
@@ -227,14 +228,53 @@ bunx --bun prisma init --output ./generated/prisma
 
 ---
 
+### 📄 Generated File Contents
+
+After running `prisma init`, the following files are generated with these default contents:
+
+**`prisma.config.ts`**
+
+```ts
+import "dotenv/config";
+import { defineConfig, env } from "prisma/config";
+
+export default defineConfig({
+  schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+  },
+  datasource: {
+    url: env("DATABASE_URL"),
+  },
+});
+```
+
+**`prisma/schema.prisma`**
+
+```prisma
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+```
+
+> [!NOTE]
+> The schema uses the **ESM-first** `prisma-client` generator with a custom output path pointing to `../generated/prisma`. This keeps the generated client outside the `prisma/` directory for cleaner imports.
+
+---
+
 ## Step 5 — Setup Environment Variable
 
 1. Create a **Prisma Postgres** database via the [Prisma Console](https://console.prisma.io)
-2. Copy your connection string
+2. Copy your connection string from the CLI output
 3. Replace the placeholder value in your `.env` file:
 
 ```env
-DATABASE_URL="your-prisma-postgres-connection-string-here"
+DATABASE_URL="postgres://your-connection-string-here"
 ```
 
 > [!CAUTION]
@@ -280,6 +320,46 @@ bunx --bun prisma generate
 
 > [!TIP]
 > Re-run `bunx --bun prisma generate` any time you modify your `schema.prisma` file to keep your Prisma Client in sync.
+
+---
+
+## Step 8 — Instantiate Prisma Client
+
+Create a dedicated file to instantiate and export the Prisma Client. This keeps your database connection centralized and reusable across your project.
+
+📄 `src/lib/prisma.ts`
+
+```ts
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../generated/prisma/client";
+
+const connectionString = `${process.env.DATABASE_URL}`;
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+export { prisma };
+```
+
+#### 🔍 What Each Line Does
+
+| Line                                          | Purpose                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------- |
+| `import "dotenv/config"`                      | Loads environment variables from `.env` into `process.env`           |
+| `PrismaPg`                                    | The **PostgreSQL driver adapter** that bridges Prisma and `pg`        |
+| `PrismaClient`                                | The auto-generated Prisma Client from your schema                     |
+| `new PrismaPg({ connectionString })`          | Creates a `pg`-based adapter using your `DATABASE_URL`               |
+| `new PrismaClient({ adapter })`               | Instantiates Prisma Client with the PostgreSQL adapter injected       |
+| `export { prisma }`                           | Exports the client instance for use throughout your application       |
+
+> [!TIP]
+> Import `prisma` from this file anywhere in your project:
+> ```ts
+> import { prisma } from "./lib/prisma";
+> ```
+
+> [!NOTE]
+> If you need to query your database via HTTP from an **edge runtime** (e.g., Cloudflare Workers, Vercel Edge Functions), use the [Prisma Postgres serverless driver](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/driver-adapters) instead of the `pg` adapter.
 
 ---
 
