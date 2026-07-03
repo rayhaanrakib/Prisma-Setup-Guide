@@ -30,6 +30,8 @@ A step-by-step reference guide for setting up a **TypeScript backend** with **Ex
   - [Step 6 — Database Migration](#step-6--database-migration)
   - [Step 7 — Generate Prisma Client](#step-7--generate-prisma-client)
   - [Step 8 — Instantiate Prisma Client](#step-8--instantiate-prisma-client)
+  - [Step 9 — Environment Config Module](#step-9--environment-config-module)
+  - [Step 10 — Bootstrap the Server](#step-10--bootstrap-the-server)
 
 ---
 
@@ -343,23 +345,150 @@ export { prisma };
 
 #### 🔍 What Each Line Does
 
-| Line                                          | Purpose                                                               |
-| --------------------------------------------- | --------------------------------------------------------------------- |
-| `import "dotenv/config"`                      | Loads environment variables from `.env` into `process.env`           |
-| `PrismaPg`                                    | The **PostgreSQL driver adapter** that bridges Prisma and `pg`        |
-| `PrismaClient`                                | The auto-generated Prisma Client from your schema                     |
-| `new PrismaPg({ connectionString })`          | Creates a `pg`-based adapter using your `DATABASE_URL`               |
-| `new PrismaClient({ adapter })`               | Instantiates Prisma Client with the PostgreSQL adapter injected       |
-| `export { prisma }`                           | Exports the client instance for use throughout your application       |
+| Line                                 | Purpose                                                         |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `import "dotenv/config"`             | Loads environment variables from `.env` into `process.env`     |
+| `PrismaPg`                           | The **PostgreSQL driver adapter** that bridges Prisma and `pg`  |
+| `PrismaClient`                       | The auto-generated Prisma Client from your schema              |
+| `new PrismaPg({ connectionString })` | Creates a `pg`-based adapter using your `DATABASE_URL`         |
+| `new PrismaClient({ adapter })`      | Instantiates Prisma Client with the PostgreSQL adapter injected |
+| `export { prisma }`                  | Exports the client instance for use throughout your application |
 
 > [!TIP]
 > Import `prisma` from this file anywhere in your project:
+>
 > ```ts
 > import { prisma } from "./lib/prisma";
 > ```
 
 > [!NOTE]
 > If you need to query your database via HTTP from an **edge runtime** (e.g., Cloudflare Workers, Vercel Edge Functions), use the [Prisma Postgres serverless driver](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/driver-adapters) instead of the `pg` adapter.
+
+---
+
+## Step 9 — Environment Config Module
+
+Instead of accessing `process.env` directly throughout your codebase, centralize all environment variables in a single typed config file. This makes your configuration easier to manage and refactor.
+
+📄 `src/config/index.ts`
+
+```ts
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.join(process.cwd(), ".env") });
+
+export default {
+  port: process.env.PORT,
+  appUrl: process.env.APP_URL,
+  databaseUrl: process.env.DATABASE_URL,
+  bcryptSaltRounds: process.env.BCRYPT_SALT_ROUNDS,
+  jwtAccessSecret: process.env.JWT_SECRET,
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
+  jwtAccessExpireIn: process.env.JWT_ACCESS_EXPIRE_IN,
+  jwtRefreshExpireIn: process.env.JWT_REFRESH_EXPIRE_IN,
+};
+```
+
+#### 🔍 Config Keys Reference
+
+| Key                  | Environment Variable      | Purpose                                               |
+| -------------------- | ------------------------- | ----------------------------------------------------- |
+| `port`               | `PORT`                    | The port your Express server listens on               |
+| `appUrl`             | `APP_URL`                 | The base URL of your application                      |
+| `databaseUrl`        | `DATABASE_URL`            | PostgreSQL connection string for Prisma               |
+| `bcryptSaltRounds`   | `BCRYPT_SALT_ROUNDS`      | Number of salt rounds used when hashing passwords     |
+| `jwtAccessSecret`    | `JWT_SECRET`              | Secret key for signing JWT access tokens              |
+| `jwtRefreshSecret`   | `JWT_REFRESH_SECRET`      | Secret key for signing JWT refresh tokens             |
+| `jwtAccessExpireIn`  | `JWT_ACCESS_EXPIRE_IN`    | Expiry duration for JWT access tokens (e.g. `15m`)   |
+| `jwtRefreshExpireIn` | `JWT_REFRESH_EXPIRE_IN`   | Expiry duration for JWT refresh tokens (e.g. `7d`)   |
+
+> [!IMPORTANT]
+> Make sure all of these keys are defined in your `.env` file before starting the server. Missing values will result in `undefined` at runtime.
+
+📄 `.env` — full example:
+
+```env
+PORT=5000
+APP_URL=http://localhost:5000
+DATABASE_URL="postgres://your-connection-string-here"
+BCRYPT_SALT_ROUNDS=12
+JWT_SECRET=your-access-token-secret
+JWT_REFRESH_SECRET=your-refresh-token-secret
+JWT_ACCESS_EXPIRE_IN=15m
+JWT_REFRESH_EXPIRE_IN=7d
+```
+
+> [!TIP]
+> Import config anywhere in your project instead of using `process.env` directly:
+>
+> ```ts
+> import config from "./config";
+>
+> const port = config.port;
+> ```
+
+---
+
+## Step 10 — Bootstrap the Server
+
+Create the server entry point. This file connects to the database and starts the Express server. If anything fails during startup, it gracefully disconnects Prisma and exits the process.
+
+📄 `src/server.ts`
+
+```ts
+import app from "./app";
+import config from "./config";
+import { prisma } from "./lib/prisma";
+
+const PORT = config.port;
+
+async function main() {
+  try {
+    await prisma.$connect();
+    console.log("Connected to Prisma database");
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Error starting server:", error);
+    await prisma.$disconnect();
+    console.log("Disconnected from Prisma database");
+    process.exit(1);
+  }
+}
+
+main();
+```
+
+#### 🔍 What Each Part Does
+
+| Part                      | Purpose                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------- |
+| `import app`              | Imports the configured Express application instance from `app.ts`             |
+| `import config`           | Pulls the port from the centralized environment config module                 |
+| `import { prisma }`       | Imports the shared Prisma Client instance from `lib/prisma.ts`                |
+| `prisma.$connect()`       | Explicitly opens the database connection before the server starts accepting requests |
+| `app.listen(PORT, ...)`   | Starts the HTTP server on the configured port                                 |
+| `prisma.$disconnect()`    | Gracefully closes the database connection if startup fails                    |
+| `process.exit(1)`         | Exits the process with a failure code so the error doesn't go unnoticed       |
+
+> [!NOTE]
+> `server.ts` expects an `app.ts` file that exports a configured Express instance. Create `src/app.ts` and export your Express app from there before running the server.
+
+> [!TIP]
+> Run your server in development with:
+>
+> ```bash
+> bun run src/server.ts
+> ```
+>
+> You should see both of these messages if everything is working correctly:
+>
+> ```
+> Connected to Prisma database
+> Server is running on port 5000
+> ```
 
 ---
 
