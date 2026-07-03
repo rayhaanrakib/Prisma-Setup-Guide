@@ -32,6 +32,7 @@ A step-by-step reference guide for setting up a **TypeScript backend** with **Ex
   - [Step 8 — Instantiate Prisma Client](#step-8--instantiate-prisma-client)
   - [Step 9 — Environment Config Module](#step-9--environment-config-module)
   - [Step 10 — Bootstrap the Server](#step-10--bootstrap-the-server)
+  - [Step 11 — Configure package.json Scripts](#step-11--configure-packagejson-scripts)
 
 ---
 
@@ -46,6 +47,9 @@ A step-by-step reference guide for setting up a **TypeScript backend** with **Ex
 | 3   | Generate Prisma Client   | `bunx --bun prisma generate` |
 | 4   | Open Prisma Studio (GUI) | `bunx prisma studio`         |
 | 5   | Deploy (Production Only) | `bunx prisma migrate deploy` |
+| 6   | Start Dev Server         | `bun run dev`                |
+| 7   | Build for Production     | `bun run build`              |
+| 8   | Start Production Server  | `bun run start`              |
 
 ---
 
@@ -392,16 +396,16 @@ export default {
 
 #### 🔍 Config Keys Reference
 
-| Key                  | Environment Variable      | Purpose                                               |
-| -------------------- | ------------------------- | ----------------------------------------------------- |
-| `port`               | `PORT`                    | The port your Express server listens on               |
-| `appUrl`             | `APP_URL`                 | The base URL of your application                      |
-| `databaseUrl`        | `DATABASE_URL`            | PostgreSQL connection string for Prisma               |
-| `bcryptSaltRounds`   | `BCRYPT_SALT_ROUNDS`      | Number of salt rounds used when hashing passwords     |
-| `jwtAccessSecret`    | `JWT_SECRET`              | Secret key for signing JWT access tokens              |
-| `jwtRefreshSecret`   | `JWT_REFRESH_SECRET`      | Secret key for signing JWT refresh tokens             |
-| `jwtAccessExpireIn`  | `JWT_ACCESS_EXPIRE_IN`    | Expiry duration for JWT access tokens (e.g. `15m`)   |
-| `jwtRefreshExpireIn` | `JWT_REFRESH_EXPIRE_IN`   | Expiry duration for JWT refresh tokens (e.g. `7d`)   |
+| Key                  | Environment Variable    | Purpose                                             |
+| -------------------- | ----------------------- | --------------------------------------------------- |
+| `port`               | `PORT`                  | The port your Express server listens on             |
+| `appUrl`             | `APP_URL`               | The base URL of your application                    |
+| `databaseUrl`        | `DATABASE_URL`          | PostgreSQL connection string for Prisma             |
+| `bcryptSaltRounds`   | `BCRYPT_SALT_ROUNDS`    | Number of salt rounds used when hashing passwords   |
+| `jwtAccessSecret`    | `JWT_SECRET`            | Secret key for signing JWT access tokens            |
+| `jwtRefreshSecret`   | `JWT_REFRESH_SECRET`    | Secret key for signing JWT refresh tokens           |
+| `jwtAccessExpireIn`  | `JWT_ACCESS_EXPIRE_IN`  | Expiry duration for JWT access tokens (e.g. `15m`) |
+| `jwtRefreshExpireIn` | `JWT_REFRESH_EXPIRE_IN` | Expiry duration for JWT refresh tokens (e.g. `7d`) |
 
 > [!IMPORTANT]
 > Make sure all of these keys are defined in your `.env` file before starting the server. Missing values will result in `undefined` at runtime.
@@ -463,15 +467,15 @@ main();
 
 #### 🔍 What Each Part Does
 
-| Part                      | Purpose                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| `import app`              | Imports the configured Express application instance from `app.ts`             |
-| `import config`           | Pulls the port from the centralized environment config module                 |
-| `import { prisma }`       | Imports the shared Prisma Client instance from `lib/prisma.ts`                |
-| `prisma.$connect()`       | Explicitly opens the database connection before the server starts accepting requests |
-| `app.listen(PORT, ...)`   | Starts the HTTP server on the configured port                                 |
-| `prisma.$disconnect()`    | Gracefully closes the database connection if startup fails                    |
-| `process.exit(1)`         | Exits the process with a failure code so the error doesn't go unnoticed       |
+| Part                    | Purpose                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `import app`            | Imports the configured Express application instance from `app.ts`                   |
+| `import config`         | Pulls the port from the centralized environment config module                        |
+| `import { prisma }`     | Imports the shared Prisma Client instance from `lib/prisma.ts`                      |
+| `prisma.$connect()`     | Explicitly opens the database connection before the server starts accepting requests |
+| `app.listen(PORT, ...)` | Starts the HTTP server on the configured port                                        |
+| `prisma.$disconnect()`  | Gracefully closes the database connection if startup fails                           |
+| `process.exit(1)`       | Exits the process with a failure code so the error doesn't go unnoticed              |
 
 > [!NOTE]
 > `server.ts` expects an `app.ts` file that exports a configured Express instance. Create `src/app.ts` and export your Express app from there before running the server.
@@ -480,7 +484,7 @@ main();
 > Run your server in development with:
 >
 > ```bash
-> bun run src/server.ts
+> bun run dev
 > ```
 >
 > You should see both of these messages if everything is working correctly:
@@ -489,6 +493,77 @@ main();
 > Connected to Prisma database
 > Server is running on port 5000
 > ```
+
+---
+
+## Step 11 — Configure package.json Scripts
+
+Update your `package.json` to define the project metadata, scripts, and confirm all dependencies are in place.
+
+📄 `package.json`
+
+```json
+{
+  "name": "prisma-press",
+  "version": "1.0",
+  "description": "A Prisma Press",
+  "author": "Rayhan",
+  "license": "ISC",
+  "module": "index.ts",
+  "main": "server.ts",
+  "scripts": {
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts"
+  },
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/bun": "latest",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.1.0",
+    "@types/pg": "^8.20.0",
+    "prisma": "^7.8.0",
+    "tsx": "^4.22.5"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "http-status": "^2.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0"
+  }
+}
+```
+
+#### 🔍 Scripts Reference
+
+| Script          | Command                      | Purpose                                                                 |
+| --------------- | ---------------------------- | ----------------------------------------------------------------------- |
+| `bun run dev`   | `tsx watch src/server.ts`    | Starts the dev server with **hot reload** — restarts on file changes    |
+| `bun run build` | `tsc`                        | Compiles TypeScript source files into JavaScript inside `dist/`         |
+| `bun run start` | `node dist/server.js`        | Runs the compiled production build from `dist/`                         |
+
+> [!NOTE]
+> `tsx watch` is used for development instead of `bun --watch` to ensure compatibility with the TypeScript compiler options configured in `tsconfig.json`.
+
+> [!WARNING]
+> Always run `bun run build` before `bun run start`. The `start` script runs the compiled `.js` output from `dist/` — if `dist/` is missing or outdated, it will fail.
+
+> [!TIP]
+> The `"type": "module"` field in `package.json` tells Node.js to treat all `.js` files as **ES Modules**, which is required for the ESM-compatible `tsconfig.json` configured in Step 3.
 
 ---
 
